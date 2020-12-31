@@ -1,0 +1,99 @@
+---
+title: "Web scraping and data preprocessing"
+author: "Mie Arnau Martinez"
+date: "12/20/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+library(pacman)
+ p_load(xml2)
+ p_load(rvest)
+ p_load(tidyverse) # Include tidyr, dplyr and stringr
+```
+
+```{r corona related deaths data}
+#------------------------
+#   WEB SCRAPING
+#------------------------ 
+# Saving the URL to an object
+url <- "https://www.statista.com/statistics/1093256/novel-coronavirus-2019ncov-deaths-worldwide-by-country/"
+# scraping the website 
+url_html <- read_html(url)
+
+# Saving the data from the html tag "body" that captures the statistics from the website
+corona_death <- url_html %>%
+  rvest::html_nodes('body') %>%
+  xml2::xml_find_all("//div[contains(@class, 'panelCard panelCard--statistic')]") %>%
+  rvest::html_text()
+# This is saved as a string so data cleaning is needed to make this into a data frame
+
+#------------------------
+#   DATA CLEANING
+#------------------------ 
+# Removing the title
+corona_death <- str_replace(corona_death, "Number of deaths", "")
+# Replacing "," with "."
+corona_death <- str_replace_all(corona_death, ",", ".")
+# Grouping the strings in countries and numbers of deaths and comma separate them
+corona_death <- gsub("([^0-9]+)([^a-zA-Z]+)", "\\1,\\2,", corona_death)
+# This allows us to only pick the countries
+corona_country <- gsub("([^0-9]+)([^a-zA-Z]+)", "\\1", corona_death) 
+# These are then saved as a list 
+corona_list <- as.list(strsplit(corona_country, split = ",")[[1]]) 
+# Inspecting the list, we see that element 198, 199 and 200 needs removal
+corona_list <- corona_list[-c(198:200)]
+
+# The same is done for the numbers
+corona_number <- gsub("([^0-9]+)([^a-zA-Z]+)", "\\2", corona_death) 
+corona_list2 <- as.list(strsplit(corona_number, split = ",")[[1]])
+corona_list2 <- corona_list2[-c(198:199)]
+# The last element contains "\n" so we replace it with only the correct value
+corona_list2[[197]] <- '1'
+
+
+# Merging the lists into one data frame
+corona_list <- as.vector(unlist(corona_list))
+corona_list2 <- as.vector(unlist(corona_list2))
+
+corona_df <- as.data.frame(cbind("Country" = corona_list, "Deaths" = corona_list2))
+
+# Lastly, I save it to a csv file
+write_csv(corona_df, "../data/corona_deaths.csv")
+
+```
+
+```{r GDP changes per country data}
+#------------------------
+#   LOADING THE DATA
+#------------------------
+# Read csv file of the GDP changes from data folder
+gdp_per_country <- read_csv('../data/raw_GDP_per_country.csv')
+# Only selecting the relevant columns
+gdp2019_2020 <- gdp_per_country[, 41:42]
+# Adding the column with the countries
+gdp2019_2020 <- cbind(gdp_per_country[,1], gdp2019_2020)
+
+#------------------------
+#   DATA CLEANING
+#------------------------ 
+# First, changing the string answers ("no data") to NA
+gdp2019_2020$'2019'[gdp2019_2020$'2019' == "no data"] <- NA
+gdp2019_2020$'2020'[gdp2019_2020$'2020' == "no data"] <- NA
+# Removing all NA's
+complete_gdp2019_2020 <- na.omit(gdp2019_2020)
+
+# Removing regions and analytical groups
+complete_gdp2019_2020 <- complete_gdp2019_2020[1:194,] %>% 
+  rename(Country = "Real GDP growth (Annual percent change)")
+
+# Lastly, I save it to a csv
+write_csv(complete_gdp2019_2020, "../data/GDP_per_country.csv")
+```
+
