@@ -1,0 +1,127 @@
+---
+title: "Assignment 7 - Web scraping"
+author: "Mie Arnau Martinez"
+date: "10/31/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+# Loading relevant packages
+library(pacman)
+p_load(xml2)
+p_load(rvest)
+p_load(tidyverse) # Include tidyr, dplyr and stringr
+p_load(janitor)
+```
+
+Webcraping of the worldometers website. Among others, this website holds information about population by country. 
+```{r}
+# Saving the URL to an object
+url <- "https://www.worldometers.info/world-population/population-by-country/"
+# scraping the website 
+url_html <- read_html(url)
+
+# Saving the data from the html tag "table" that captures the table from the website
+table_list <- url_html %>% 
+ html_nodes("table") %>%
+ html_table()
+# This is saved as a list
+
+# Therefore, we unlist and bind together the separate lists as different columns of a dataframe.
+table_df <- as.data.frame(do.call(cbind,unlist(table_list, recursive = FALSE))) 
+head(table_df)
+
+# Some of the column names are quite long so I rename the one's that I am going to use
+table_df <- table_df %>% 
+  rename(
+    Country = "Country (or dependency)",
+    Population = "Population (2020)",
+    FertilityRate = "Fert. Rate",
+    Density = "Density (P/Km²)"
+    )
+
+```
+
+
+From this table, I want to visualize the fertility rate against the density (population / land area km²) to see if there is a relation between how dense the population is and how many children the women get on average.
+
+```{r}
+# Data cleaning
+# After inspecting the data, I found that commas where used to delineate the numbers in the density and population column. Therefore, I start by removing these and transforming the values to numeric values
+table_df$Population <- as.numeric(gsub("\\,", "", table_df$Population))
+table_df$Density <- as.numeric(gsub("\\,", "", table_df$Density)) 
+table_df$FertilityRate <- as.numeric(table_df$FertilityRate)
+
+# Some of the values in FertilityRate are characters ("N.A."). Therefore, these cannot be made numeric and instead they are now labeled as NA.
+
+# I then create some summaries of the data (mean population, mean density and mean fertility). To do this I first have to select the columns and filter out the NA's from FertilityRate.
+table_df %>% 
+  select(Population, Density, FertilityRate) %>% 
+  filter(!is.na(FertilityRate)) %>% 
+  summarise(mean_pop = mean(Population), 
+            mean_dens = mean(Density), 
+            mean_fertil = mean(FertilityRate))
+```
+
+From this, we can see that the average population per country is 38.8 million. Furthermore, the average population density is 359 people/Km² and the average female gets 2.7 children in their lifetime. 
+
+Now to the visualization:
+I want to plot the fertility rate against population density for the countries with a population greater than the average population. This is mainly to decrease the number of countries included in the plot so that it is more tangible. I also plot all countries at once to compare.
+```{r}
+# Expanding the scientific notation in the legend to whole numbers
+options(scipen=999)
+
+# Plotting the Density and FertilityRate for countries with a population above average
+table_df %>%  
+  filter(Population > 39000000) %>% 
+  ggplot(aes(x = Density, y = FertilityRate, size = Population, color = Country)) +
+    # Making the points more see-through by specifying the alpha < 1.
+    geom_point(alpha=0.7) +
+    # Changing the x axis scale to logarithmic to spread out the data points and pull outliers closer to the other data points
+    scale_x_log10() +
+    # Changing the scale for the size of the data points
+    scale_size(range = c(1, 5)) + 
+    # Specifying the range of the y axis
+    ylim(0, 8) +
+    # Specifying the title, x label and y label.
+    labs(title = "Relation between Fertility Rate and Population Density in Greatly \n Populated Countries in 2020", 
+         x = "Population Density", 
+         y = "Fertility Rate") +
+    # Specifying the theme
+    theme_classic() + 
+    # From here I just play around with the position and size of the different elements
+    theme(legend.title = element_text(size = 7), 
+          legend.text = element_text(size = 6),
+          legend.position = "right",
+          legend.direction = "horizontal") +
+    # The last two lines decides the position of the title of the size and color legend and how many rows there should be for the color legend
+    guides(color = guide_legend(title = "Color", title.position = "top", nrow = 9),
+           size = guide_legend(title = "Population", title.position = "top"))
+
+
+# Plot of the Density and FertilityRate for all countries
+table_df %>%  
+  ggplot(aes(x = Density, y = FertilityRate, size = Population, color = Country)) +
+    geom_point(alpha = 0.7) +
+    scale_size(range = c(1, 5)) + 
+    scale_x_log10() +
+    ylim(0, 8) +
+    labs(title = "Relation between Fertility Rate and Population Density in 2020", 
+         x = "Population Density", 
+         y = "Fertility Rate")+
+    # Color codes for each country couldn't fit in the plot so therefore they are excluded
+    guides(color = "none")+
+    theme_classic()
+
+```
+
+Of course, more statistical test are needed to conclude anything about the relationship between fertility rate and population density. However, from the plots there doesn't seem to be a trend in the data. This pattern is true both for the countries with the highest population as well as all countries in general.
+
+References:
+I used this guide for finding out how to re-position the elements in the plots: https://ggplot2.tidyverse.org/reference/guides.html
