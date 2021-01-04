@@ -5,25 +5,31 @@ date: "12/28/2020"
 output: html_document
 ---
 
+This script provides the code for making data visualization of GDP changes in 2019 and 2020 as well as corona-related deaths in 2020 for more than 190 countries. 
+
+A prerequisite for the current script is the two csv files: GDP_per_country.csv and corona_deaths.csv. These can be downloaded from "https://github.com/Digital-Methods-HASS/au616353_martinez_mie/tree/master/my_final_project/data". Alternatively, the data can be obtained from the script "Web_scraping_and_data_preprocessing.rmd". 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Loading libraries and data
 
 ```{r libraries and data}
 library(pacman)
-p_load(tidyverse, stringr, rgeos, tm)
-p_load(ggplot2, rnaturalearth, rnaturalearthdata, ggrepel, ggspatial, sf)
-#p_load(cowplot, googleway, libwgeom)
+p_load(tidyverse, stringr, rgeos, tm, ggplot2, rnaturalearth, rnaturalearthdata, ggrepel, ggspatial, sf)
 
 # Loading the data
 GDP <- read_csv("../data/GDP_per_country.csv")
 deaths <- read_csv("../data/corona_deaths.csv")
 ```
 
+Upon merging the GDP data with the data from the rnaturalearthdata, multiple countries were lost. This was mainly due to different naming.
+
 ```{r dataframe of the world and GDP in 2019 and 2020}
+# Making a world data frame that holds the spatial geometry of the polygons used for plotting a map
 world <- ne_countries(scale = "medium", returnclass = "sf")
+
 # Making a new column name in GDP data frame to match the one in world data frame
 GDP$name <- str_replace_all(GDP$Country, ", The", "")
 # Changing the name of some countries that don't match the naming in the world data frame
@@ -92,10 +98,14 @@ world_gdp <- world_gdp %>% rename(
 
 ```
 
+World map visualizations of GDP changes in 2019 and 2020.
+
 ```{r data visualizations of GDP changes in 2019 and 2020}
 # Using the sf package to label countries
-world_points<- st_point_on_surface(world) # This finds a point on each country (polygon)
-world_points <- cbind(world, st_coordinates(st_point_on_surface(world$geometry))) # This ties the coordinates to a country so that one can print the countries' names on the map.
+# This finds a point on each polygon and ties the coordinates to a country so that one can print the countries' names on the map.
+world_points<- st_point_on_surface(world) 
+world_points <- cbind(world, st_coordinates(st_point_on_surface(world$geometry))) 
+class(world_points)
 
 # PLOT OF GDP CHANGES IN 2020 (ONLY IN EUROPE)
 GDP_2020_EU <- ggplot(data = world_gdp) +
@@ -107,7 +117,7 @@ GDP_2020_EU <- ggplot(data = world_gdp) +
     ggtitle("GDP changes in Europe in 2020", subtitle = paste0("(", length(unique(world_gdp$name)), " countries)"))+
     # Using the geom text and the world point object to show the names of the countries
     geom_text(data= world_points,aes(x=X, y=Y, label=name),
-    color = "black", check_overlap = FALSE, size=3) +
+    color = "black", check_overlap = FALSE, size=2) +
     # This adds a scale to real life measure from ggspatial package
     ggspatial::annotation_scale(location = "bl", width_hint = 0.25) +
     # uses the sf package and zooms in on the map to only display Europe
@@ -139,7 +149,10 @@ ggsave("../plots/GDP_2020_World.png")
 
 ```
 
+As previously, multiple countries were lost when merging the corona-related deaths data with the world data frame.
+
 ```{r dataframe of the world and corona-related deaths in 2020}
+# Making a new column name in deaths data frame to match the one in world data frame
 deaths <- deaths %>% rename(
   "name" = "Country"
 )
@@ -169,7 +182,7 @@ deaths$death_no_punc <- removePunctuation(deaths$Deaths)
 #     deleted2 <- append(deleted2, i)
 #     }}
 
-# Changing the name of some countries that don't match the naming in the world data frame
+# Changing the name of countries that don't match the naming in the world data frame
 deaths$name <- str_replace(deaths$name, "USA", "United States")
 deaths$name <- str_replace(deaths$name, "UK", "United Kingdom")
 deaths$name <- str_replace(deaths$name, "Czechia", "Czech Rep.")
@@ -200,6 +213,7 @@ deaths$name <- str_replace(deaths$name, "Réunion", "Fr. S. Antarctic Lands")
 
 # Merging the data frames 
 world_corona <- merge(world, deaths)
+
 # Eight countries/ships were removed in the merge
 
 #deaths$name <- str_replace(deaths$name, "Martinique", "") part of France 
@@ -215,13 +229,15 @@ world_corona <- merge(world, deaths)
 
 ```
 
+World map visualizations of corona-related deaths.
+
 ```{r data visualizations of corona-related deaths in 2020}
 # PLOT OF CORONA-RELATED DEATHS IN 2020 (World map)
 # Changing deaths to deaths per capita
 world_corona$death_no_punc <- as.numeric(world_corona$death_no_punc)
 world_corona <- world_corona %>%  mutate(death_per_capita = death_no_punc/pop_est)
 options(scipen=999)
-ggplot(data = world_corona) +
+deaths_plot <- ggplot(data = world_corona) +
     geom_sf(aes(fill = death_no_punc)) +
     scale_fill_viridis_c(name = "No. of Deaths", option = "plasma")+
     theme_bw()+
@@ -232,7 +248,7 @@ ggplot(data = world_corona) +
 ggsave("../plots/Corona_casualties_2020.png")
 
 # PLOT OF DEATHS PER CAPITA IN 2020 (World map)
-ggplot(data = world_corona) +
+deaths_per_capita_plot <- ggplot(data = world_corona) +
     geom_sf(aes(fill = death_per_capita)) +
     # trans = "log10" is chosen to better highlight differences.
     scale_fill_viridis_c(name = "No. of Deaths", option = "plasma", trans = "log10")+
@@ -244,34 +260,36 @@ ggplot(data = world_corona) +
 ggsave("../plots/Corona_casualties_per_capita_2020.png")
 
 # PLOT OF DEATHS PER CAPITA IN 2020 (EUROPE)
-ggplot(data = world_corona) +
+deaths_EU <- ggplot(data = world_corona) +
     geom_sf(aes(fill = death_per_capita)) +
     # USing the plasma fill option to show the gdp differences in color blind friendly colors. 
-    scale_fill_viridis_c(name = "GDP", option = "plasma")+
+    scale_fill_viridis_c(name = "No. of Deaths", option = "plasma", trans = "log10")+
     theme_bw()+
     xlab("Longitude") + ylab("Latitude") +
-    ggtitle("GDP changes in Europe in 2020", subtitle = paste0("(", length(unique(world_gdp$name)), " countries)"))+
+    ggtitle("Corona-related deaths by country in Europe in 2020", subtitle = paste0("(", length(unique(world_gdp$name)), " countries)"))+
     # Using the geom text and the world point object to show the names of the countries
     geom_text(data= world_points,aes(x=X, y=Y, label=name),
-    color = "black", check_overlap = FALSE, size=3) +
+    color = "black", check_overlap = TRUE, size=2) +
     # This adds a scale to real life measure from ggspatial package
     ggspatial::annotation_scale(location = "bl", width_hint = 0.25) +
     # uses the sf package and zooms in on the map to only display Europe
     coord_sf(xlim = c(-20, 40), ylim = c(35, 72), expand = FALSE)
 # Saving the plot
-ggsave("../plots/GDP_2020_EU.png")
+ggsave("../plots/Corona_casualities_2020_EU.png")
 ```
+Correlation test between corona-related deaths and GDP changes in 2020.
 
 ```{r analysis}
 
 # To make a correlation test between the variables, I first merge these parameters to the same data frame
 gdp_2020 <- select(world_gdp, name, gdp_2020)
-gdp_2020 <- as.data.frame(gdp_2020) # Making this into a data frame as to sf objects can't be merged
+gdp_2020 <- as.data.frame(gdp_2020) # Making this into a data frame as two sf objects can't be merged
 corona_df <- select(world_corona, name, death_per_capita)
 
-
+# Merging the data frames
 corona_and_gdp <- merge(gdp_2020, corona_df) %>% select(name, death_per_capita, gdp_2020)
 
+# Pearson's correlation test
 cor.test(corona_and_gdp$death_per_capita, corona_and_gdp$gdp_2020, method=c("pearson"))
 # r = -0.23, t = -3.04, df = 166, p < 0.003.
 

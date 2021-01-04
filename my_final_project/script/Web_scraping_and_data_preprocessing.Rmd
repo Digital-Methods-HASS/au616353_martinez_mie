@@ -5,11 +5,16 @@ date: "12/20/2020"
 output: html_document
 ---
 
+This script provides the code for data acquisition and preprocessing for the project of making world map visualizations and investigating the effect of the Covid-19 crisis on the world economy.
+
+A prerequisite for the current script is the csv file "raw_GDP_per_country.csv". This can be found on "https://github.com/Digital-Methods-HASS/au616353_martinez_mie/tree/master/my_final_project/data".
+Similarly, the results can be found on the same Github folder.
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
+Loading libraries
 
 ```{r}
 library(pacman)
@@ -17,6 +22,8 @@ library(pacman)
  p_load(rvest)
  p_load(tidyverse) # Include tidyr, dplyr and stringr
 ```
+
+Data acquisition of corona-related deaths per country. This was done through web scraping of Statista.
 
 ```{r corona related deaths data}
 #------------------------
@@ -68,6 +75,8 @@ corona_df <- as.data.frame(cbind("Country" = corona_list, "Deaths" = corona_list
 write_csv(corona_df, "../data/corona_deaths.csv")
 
 ```
+
+Data preprocessing of GDP changes per country in 2019 and 2020.
 
 ```{r GDP changes per country data}
 #------------------------
