@@ -208,7 +208,7 @@ deaths$name <- str_replace(deaths$name, "Sao Tome and Principe", "São Tomé and
 deaths$name <- str_replace(deaths$name, "Saint Martin", "St-Martin")
 deaths$name <- str_replace(deaths$name, "Antigua and Barbuda", "Antigua and Barb.")
 deaths$name <- str_replace(deaths$name, "Ivory Coast", "Côte d'Ivoire")
-deaths$name <- str_replace(deaths$name, "Réunion", "Fr. S. Antarctic Lands")
+
 
 
 # Merging the data frames 
@@ -216,6 +216,7 @@ world_corona <- merge(world, deaths)
 
 # Eight countries/ships were removed in the merge
 
+#deaths$name <- str_replace(deaths$name, "Réunion", "") # not in the world data
 #deaths$name <- str_replace(deaths$name, "Martinique", "") part of France 
 #deaths$name <- str_replace(deaths$name, "Diamond Princess", "") this is a ship
 #deaths$name <- str_replace(deaths$name, "Gibraltar", "") part of UK
