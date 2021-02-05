@@ -1,0 +1,160 @@
+---
+title: "W1 - Make an interactive map"
+author: "Mie Arnau Martinez"
+date: "2/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Your colleague has found some ruins during a hike in the Blue Mountains and recorded the coordinates of structures on her phone (RCFeature.csv). She would like to map her points but has no computer or mapping skills. Can you make a map that she can work with using only a browser? She needs an interactive map that she can download to her computer and use straightaway.
+
+# Create a standalone .html map in Leaflet showing at least basic topography and relief, and load in the table of points. Make sure she can see the FeatureID, FeatureType and Description attributes when she hovers over the point markers. 
+
+# Consider adding elements such as minimap() and measure() for easier map interaction
+
+# Explore the option of clustering markers with addMarkers(clusterOptions = markerClusterOptions()). Do you recommend marker clustering here?
+Answer: Yes, as there are many data points around the same places I think it is advantageous to use the cluster function as this eases visibility.
+
+
+```{r data}
+# libraries
+library(pacman)
+p_load(tidyverse, leaflet, htmltools, htmlwidgets)
+
+# loading the data
+RCFeature <- read_csv('RCFeature.csv')
+glimpse(RCFeature)
+
+```
+
+
+```{r map creation}
+# checking for and removing NA's from the dataset 
+RCFeature <- RCFeature %>% filter(!is.na(Longitude))
+
+# creating the leaflet map with a base location
+blue_mountain <- leaflet() %>%  
+  # coordinates were chosen based on data points in RCFeature
+  setView(150.3, -33.76, zoom = 12)
+
+# this line of code finds all providers that start with Esri
+esri <- grep("^Esri", providers, value = TRUE)
+
+# these are then added as tile layers for the map using a for loop
+for (provider in esri) {
+  blue_mountain <- blue_mountain %>% addProviderTiles(provider, group = provider)
+}
+
+
+# adding layers to the map
+BLmap <- blue_mountain %>%
+  addLayersControl(baseGroups = names(esri),
+                   options = layersControlOptions(collapsed = TRUE)) %>%
+  # adding minimap to ease map interaction
+  addMiniMap(tiles = esri[[1]], toggleDisplay = TRUE,
+             position = "bottomright") %>%
+  # adding measure to allow the user to add points on the map and get location
+  addMeasure(
+    position = "bottomleft",
+    primaryLengthUnit = "meters",
+    primaryAreaUnit = "sqmeters",
+    activeColor = "#3D535D",
+    completedColor = "#7D4479") %>% 
+  htmlwidgets::onRender("
+                         function(el, x) {
+                         var myMap = this;
+                         myMap.on('baselayerchange',
+                         function (e) {
+                         myMap.minimap.changeLayer(L.tileLayer.provider(e.name));
+                         })
+                         }") %>%
+  # adding markers for the data points 
+  addMarkers(lng = RCFeature$Longitude, 
+             lat = RCFeature$Latitude,
+             # Pasting the feature ID, type and description to get all in the popup for                  each point
+             popup = paste("Feature ID:", RCFeature$FeatureID, "<br>",
+                           "Feature type:", RCFeature$FeatureType, "<br>",
+                           "Description:", RCFeature$Description),
+             # adding clusters to ease visibility
+             clusterOptions = markerClusterOptions()) %>% 
+  # adding a control to change graphics elements and layers to the map widget
+  addControl("", position = "topright")
+
+# Save map as a html document
+library(htmlwidgets)
+saveWidget(BLmap, "blue_mountain_map.html", selfcontained = TRUE)
+
+
+```
+
+
+Map of Blue Mountain and data points with differentiated markers by size using Accuracy field.
+
+```{r}
+# function to get different colors for different sizes of accuracy
+getColor <- function(df, size1, size2) {
+  sapply(df$Accuracy, function(Accuracy) {
+  if(Accuracy <= size1) {
+    "green"
+  } else if(Accuracy <= size2) {
+    "blue"
+  } else {
+    "purple"
+  } })
+}
+
+# defining the layout of the icons
+icons <- awesomeIcons(
+  icon = 'ios-close',
+  iconColor = 'black',
+  library = 'ion',
+  # applying the color function to the icons
+  markerColor = getColor(RCFeature, 0.7, 1.2) # these numbers can be changed if another differentiation is preferred
+)
+
+
+# adding layers to the map
+BLmapIcons <- blue_mountain %>%
+  addLayersControl(baseGroups = names(esri),
+                   options = layersControlOptions(collapsed = TRUE)) %>%
+  # adding minimap
+  addMiniMap(tiles = esri[[1]], toggleDisplay = TRUE,
+             position = "bottomright") %>%
+  # adding measure
+  addMeasure(
+    position = "bottomleft",
+    primaryLengthUnit = "meters",
+    primaryAreaUnit = "sqmeters",
+    activeColor = "#3D535D",
+    completedColor = "#7D4479") %>% 
+  htmlwidgets::onRender("
+                         function(el, x) {
+                         var myMap = this;
+                         myMap.on('baselayerchange',
+                         function (e) {
+                         myMap.minimap.changeLayer(L.tileLayer.provider(e.name));
+                         })
+                         }") %>%
+  # adding markers
+  addAwesomeMarkers(lng = RCFeature$Longitude, 
+             lat = RCFeature$Latitude,
+             popup = paste("Feature ID:", RCFeature$FeatureID, "<br>",
+                           "Feature type:", RCFeature$FeatureType, "<br>",
+                           "Description:", RCFeature$Description, "<br>",
+                           "Accuracy:", RCFeature$Accuracy),
+             # NEW: adding the differentiated icons
+             icon = icons,
+             # adding clusters
+             clusterOptions = markerClusterOptions()) %>% 
+  # adding a control
+  addControl("", position = "topright")
+
+# Saving the map as a html document
+library(htmlwidgets)
+saveWidget(BLmapIcons, "blue_mountain_map2.html", selfcontained = TRUE)
+
+```
+
