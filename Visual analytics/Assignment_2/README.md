@@ -4,15 +4,20 @@ The script takes a path to an image directory and the filename of a target image
 The output of the script is a csv file that holds the chi squared distance between target image and all other images in the directory.
 
 __Parameters:__ <br>
-    path: str \<path-to-image-dir\> <br>
-    target_image: str \<filename-of-target-image\> <br>
+```
+    path: str <path-to-image-dir> 
+    target_image: str <filename-of-target-image> 
+```
     
 __Usage:__ <br>
-    image_search.py -p \<path-to-image\> -t \<filename-of-target\> <br>
+```
+    image_search.py -p <path-to-image> -t <filename-of-target>
+```
     
 __Example:__ <br>
-    $ python3 image_search_MAM.py -p ../data/flowers/ -t image_0001.jpg <br>
-
+```
+    $ python3 image_search_MAM.py -p ../data/flowers/ -t image_0001.jpg
+```
 
 For running the code, one has to enter the virtual environment cv101. This can be accessed by running the code:
     
