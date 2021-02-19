@@ -4,7 +4,7 @@ The script takes a path to an image directory and the filename of a target image
 The output of the script is a csv file that holds the chi squared distance between target image and all other images in the directory.
 
 __Parameters:__ <br>
-    path: str <path-to-image-dir> <br>
+    path: str \<path-to-image-dir\> <br>
     target_image: str <filename-of-target-image> <br>
     
 __Usage:__ <br>
