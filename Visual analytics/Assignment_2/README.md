@@ -5,10 +5,10 @@ The output of the script is a csv file that holds the chi squared distance betwe
 
 __Parameters:__ <br>
     path: str \<path-to-image-dir\> <br>
-    target_image: str <filename-of-target-image> <br>
+    target_image: str \<filename-of-target-image\> <br>
     
 __Usage:__ <br>
-    image_search.py -p <path-to-image> -t <filename-of-target> <br>
+    image_search.py -p \<path-to-image\> -t \<filename-of-target\> <br>
     
 __Example:__ <br>
     $ python3 image_search_MAM.py -p ../data/flowers/ -t image_0001.jpg <br>
