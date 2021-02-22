@@ -7,7 +7,7 @@ Parameters:
 Usage:
     image_search.py -p <path-to-image> -t <filename-of-target>
 Example:
-    $ python3 image_search.py -p ../data/flowers/ -t image_0001.jpg
+    $ python3 image_search_MAM.py -p ../data/flowers/ -t image_0001.jpg
 ## Task
 - Save csv showing filename and distance comparing the target image to every image in a directory
 """
@@ -67,12 +67,14 @@ def main():
             data = data.append({"filename": image, 
                                 "distance": distance}, ignore_index = True)
     
+    # sort values based on distance to target image
     data = data.sort_values("distance")
     # save as csv in current directory
     data.to_csv(f"{target_name}_comparison.csv")
     # print that file has been saved
     print(f"output file is saved in current directory as {target_name}_comparison.csv")
-    
+    # print the filename closest to the target image by choosing the first row
+    print(f"The image {data['filename'].iloc[0]} is the closest to the {target_name}")
     
 # Define behaviour when called from command line
 if __name__=="__main__":
