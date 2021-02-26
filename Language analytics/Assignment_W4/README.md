@@ -33,3 +33,5 @@ $ cd /<directory_of_the_python_script>/
 $ python3 sentiment.py -p path2directory -f filename
 ```
 The resulting csv file will appear in the current directory.
+
+__To test the script I recommend uncommenting line 96 to make the script only run on a subset of the data (otherwise it will run for a few hours...).__
