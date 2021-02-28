@@ -64,8 +64,10 @@ def smoothed_plot(rolling_df, days_for_window):
     plt.xticks(rotation=45)
     # adding y-label
     plt.ylabel("Sentiment score")
-    # plotting
-    plt.plot(smoothed_df)
+    # plotting with label 
+    plt.plot(smoothed_df, label = f"{time} rolling average")
+    # using label as legend in the upper right corner
+    plt.legend(loc="upper right")
     # saving plot as week_sentiment in current working directory
     plt.savefig(f'{save_time}_sentiment.png', bbox_inches='tight')
     print(f"Plot '{save_time}_sentiment.png' is saved in current directory")
@@ -92,8 +94,8 @@ def main():
     in_file = os.path.join(path, filename)
     data = pd.read_csv(in_file)
     
-    # take a subset - COMMENT OUT IF USING WHOLE DATASET
-    #data_subset = data[:50000]
+    # take a subset
+    # data = data[:50000]
     
     # add spacy text blob to nlp pipeline
     spacy_text_blob = SpacyTextBlob()
