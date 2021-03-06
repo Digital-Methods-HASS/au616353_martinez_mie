@@ -1,0 +1,219 @@
+---
+title: "Assignment Week 5"
+author: "Mie Arnau Martinez"
+date: "3/4/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+
+## Task 2: Where in the landscape are the mounds located?
+The location of settlements is usually easy to predict as humans need safety and easy access to water and food resources. These range from nearby arable soil to pasturage to trading centers. Choices regarding the mortuary realm are much harder to establish as they are guided by the social norms of the living rather than the natural environment. Some environmental conditions, however, play a role, such as intervisibility, which can be an important factor for societies that use monuments to the dead for territorial signalling. Before such specific analysis, it is, however, a good idea to get a general sense of where in the landscape are mounds located.
+
+In order to produce a formal assessment of mound location, you can start by using most common aspects of topography, such as elevation, slope, aspect, and water proximity. Choose one or more of these variables. Calculate the distribution of classes of each environmental variable through the entire region (defining, en route, what you consider to be a “region”?) by extracting values from the digital elevation model and binning them in several classes. Then, calculate site frequencies within classes of the environmental variable by sampling mound locations in the raster and evaluate whether the observed pattern could be a product of the distribution of environmental categories themselves.
+
+A example workflow with elevations could look like this:
+
+- extract elevation values from the entire landscape and bin them in elevation categories (e.g. 400-500m, 500-600m, 600-700m, etc.). Consider: what defines a landscape for the purpose of this study? You may wish to crop the Aster to a smaller but representative study area but make sure you justify your selection
+- extract elevation values from observed mound locations and review their distribution in the same bins
+- calculate the expected number of mounds per bin if mounds were located through the landscape randomly
+- compare the expected number with the observed one
+
+### Approach:
+I decided to look at elevation and slope (as I assume mounds are placed at relatively flat areas). For this, I used the Aster raster which holds the elevation in the Kazanlak Valley in Bulgaria. Furthermore, I use the mounds shapefile to locate where the burial mounds are in the region of the valley.
+
+First, I look at the histogram for elevation and frequency values in the region that includes the mounds to get a general idea of the landscape. Next, I extract the elevation values at the location of each mound and plot them on a similar histogram.
+
+I then take a random sample from the distribution in the first histogram with same number of observations as there are mounds. This shows me how the mounds would be located if they where placed randomly in the region. 
+
+The same steps are taken to investigate how mounds are located based on slope.
+
+To make it easier to compare the different histograms, I use the same axis breaks for all plots of the same variable (i.e., elevation and slope, respectively).
+
+```{r, message=FALSE, warning=FALSE}
+# load libraries
+library(sf)
+library(raster)
+
+library(lattice)
+library(latticeExtra)
+library(RColorBrewer)
+library(rasterVis)
+library(rgdal)
+library(rgl)
+
+library(tmap)
+library(ggplot2)
+
+library(tidyverse)
+
+# read the data
+aster <- raster("data/aster.tif")
+mounds <- st_read("data/KAZ_mounds.shp")
+```
+
+### Preprocessing:
+Before plotting the histograms, the raster is preprocessed. I check crs values and reclassify the values in the aster (as NA's are defined as negative values). Then I crop the aster to match the area in which the mounds are located.
+
+```{r preprocessing and plots}
+# checking crs
+st_crs(mounds) #WGS 84/UTM 35N
+crs(aster) #WGS84/UTM 35N
+
+# plot the elevations
+plot(aster)
+
+# removing negative values from the aster object
+rclmat <- cbind(-10000,-1, NA)
+aster <- reclassify(aster, rcl = rclmat)
+
+# plotting to see the reclassified aster
+plot(aster)
+
+# mapping the mounds on top of the aster 
+map_uncropped <- tm_shape(aster)+
+  tm_raster()+
+  tm_shape(mounds)+
+  tm_markers(size = 0.3)+
+  tm_layout(main.title = "Uncropped map of elevation and mounds", main.title.size = 0.8)
+
+# cropping the aster object to just containing the mounds 
+aster_crop <- crop(aster, mounds)
+
+# mapping the mounds on top of the cropped aster
+map_cropped <- tm_shape(aster_crop)+
+  tm_raster()+
+  tm_shape(mounds)+
+  tm_markers(size = 0.3)+
+  tm_layout(main.title = "Cropped map of elevation and mounds", main.title.size = 0.8)
+
+# plotting both maps with tmap arrange
+tmap_arrange(map_uncropped, map_cropped, asp = NA)
+
+
+```
+
+### Elevation
+Histograms and frequency calculations for elevation values in the region, at the location of the mounds and randomly sampled.
+```{r}
+# CALCULATION AND HISTOGRAM FOR ENTIRE REGION OF INTEREST
+# Extracting values of elevation from the cropped aster for the histogram
+aster_crop_values <- values(aster_crop)
+# checking max and min values
+max(aster_crop_values) # 1302
+min(aster_crop_values) # 265
+# defining the breaks to include min and max values
+breaks = c(200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400)
+# plotting the histogram of the elevation values in the cropped aster
+hist(aster_crop_values, breaks = breaks)
+
+# Calculating elevation frequencies
+elevbins <- cut(values(aster_crop), breaks = breaks, dig.lab = 5) 
+elev_freq <- data.frame(table(elevbins))
+elev_freq
+
+
+
+# CALCULATION AND HISTOGRAM FOR MOUND LOCATIONS
+# extracting the elevation for the mounds
+mounds$elevation <- raster::extract(aster_crop, mounds)
+# plotting the histogram
+hist(mounds$elevation, breaks = breaks)
+
+# calculate elevation frequency for mounds
+elevbins <- cut(mounds$elevation, breaks = breaks, dig.lab = 5)
+mounds_freq <- data.frame(table(elevbins))
+mounds_freq
+
+
+
+# CALCULATION AND HISTOGRAM FOR RANDOM SAMPLE
+set.seed(1) # setting seed to ensure identical results everytime it runs
+
+# Randomly sample points on the raster with as many observations as mounds
+random <- raster::sampleRandom(aster_crop, size = 773, sp = T) # sp = T means that it returns a spatial points dataframe
+
+# Extracing elevation of random sample
+random$elevation = raster::extract(aster_crop, random)
+# Plotting histogram
+hist(random$elevation, breaks=breaks)
+
+# calculate elevation frequency for random sample
+elevbins <- cut(random$elevation, breaks = breaks, dig.lab = 5)
+random_freq <- data.frame(table(elevbins))
+random_freq
+
+```
+
+##### Conclusion:
+In relation to the elevation of the location of mounds in the region of interest, the burial mounds seem to be purposefully located at an elevation in the range of 400-500 meters above sea level (asl). In this interval, 616 out of 773 mounds were located (approx. 80%). In comparison, the elevation with the highest frequency within the area was 300-400 meters asl (approx. 45% of the distribution).
+Finally, the distribution of the random sample reflects the elevation frequencies in the region more compared to the mounds locations. Here, approx. 46% of the points are within the elevation range of 300-400 meters asl, whereas 39% was located within the range of 400-500 meters. 
+Therefore, it seems reasonable to draw the conclusion that the ancient mound builders preferred to build in a range of 400-500 meters asl.
+
+
+
+### Slope
+Histograms and frequency calculations for slope values in the region, at the location of the mounds and randomly sampled.
+
+```{r}
+# extracting information about slope 
+aster_terrain <- terrain(aster_crop, opt = "slope", unit = "degrees") # choosing degrees for interpretability 
+# plot the slope raster
+plot(aster_terrain)
+
+# CALCULATION AND HISTOGRAM FOR ENTIRE REGION OF INTEREST
+# Extracting values of slope from the terrain aster for the histogram
+aster_terrain_values <- values(aster_terrain)
+
+# checking max and min values
+max(aster_terrain_values, na.rm = TRUE) # 58.33
+min(aster_terrain_values, na.rm = TRUE) # 0
+# defining the breaks to include min and max values
+breaks = c(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60)
+# plotting the histogram of the slope values in the terrain aster
+hist(aster_terrain_values, breaks = breaks)
+
+# Calculating slope frequencies
+slopebins <- cut(values(aster_terrain), breaks = breaks, dig.lab = 5) 
+slope_freq <- data.frame(table(slopebins))
+slope_freq
+
+
+
+# CALCULATION AND HISTOGRAM FOR MOUND LOCATIONS
+# extracting the slope for the mounds
+mounds$slope <- raster::extract(aster_terrain, mounds)
+# plotting the histogram
+hist(mounds$slope, breaks = breaks)
+
+# calculate slope frequency for mounds
+slopebins <- cut(mounds$slope, breaks = breaks, dig.lab = 5)
+mounds_slope_freq <- data.frame(table(slopebins))
+mounds_slope_freq
+
+
+
+# CALCULATION AND HISTOGRAM FOR RANDOM SAMPLE
+set.seed(1)
+# Randomly sample points on the raster with as many observations as mounds
+random <- sampleRandom(aster_crop, 773, sp = T)
+# Extracing slope of random sample
+random$slope = raster::extract(aster_terrain, random)
+# Plotting histogram
+hist(random$slope, breaks=breaks)
+
+# calculate slope frequency for random sample
+slopebins <- cut(random$slope, breaks = breaks, dig.lab = 5)
+random_slope_freq <- data.frame(table(slopebins))
+random_slope_freq
+
+```
+
+##### Conclusion:
+As could be expected, the ancient burial mound builders located the mounds in relatively flat places. 77% was build within 0-5 degrees slope whereas the slope frequency range only constitutes 59% of the area. Comparing with the randomly sampled points, the distribution also has the majority of locations within the 0-5 degrees slope. However, the distribution has a tail that is longer than the one for the original mound locations. This means that if the mounds were placed randomly, more of them would probably have been placed at locations with a steeper slope.
