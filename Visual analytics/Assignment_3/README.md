@@ -28,4 +28,4 @@ $ source cv101/bin/activate
 $ cd /<directory_of_the_python_script>/
 $ python3 edge_detection.py -f filepath-to-image
 ```
-The resulting jpg files will appear in the current directory.
+The resulting jpg files will appear in the current directory (in this case in the directory of the python script).
