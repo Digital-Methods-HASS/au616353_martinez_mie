@@ -46,7 +46,7 @@ __Example:__ <br>
 ```
 
 
-
+# Dependencies
 To ensure dependencies are in accordance with the ones used for the script, you can create the virtual environment "classifier_environment" by running the bash script create_classifier_venv.sh
 ```
     $ bash ./create_classifier_venv.sh
