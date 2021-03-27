@@ -1,0 +1,426 @@
+---
+title: "Assignment 8 - Autocorrelation"
+author: "Mie Arnau Martinez"
+date: "3/25/2021 updated `r format(Sys.time(), '%B %d, %Y')`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=TRUE,
+	             cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+## Autocorrelation
+
+#### 1) test for the autocorrelation of the distribution of single women OR single men in Denmark during 2020, and answer the question: "Is the population of single women/men in Denmark spatially correlated? What is the correlation and how significant is the trend?
+
+
+```{r, include=FALSE}
+# Load libraries
+library(raster)
+library(rgeos)
+library(sf)
+library(tidyverse)
+library(htmltools)
+library(googlesheets4)
+library(mapview)
+library(spdep)
+library(tmap)
+library(cartogram)
+```
+
+```{r}
+# read in the data for the Danish Municipalities
+mun_sp <- readRDS("data/gadm36_DNK_2_sp.rds")
+# transform to an sf object
+mun_sf <- st_as_sf(mun_sp)
+# make crs to Danish convention
+mun <- st_transform(mun_sf, crs = 32632)
+# view what the data looks like
+#mapview(mun)
+
+
+# load attributes from google sheets
+DK_civilstatus <- read_sheet("https://docs.google.com/spreadsheets/d/1xcrd07gV3Sm0fuzSIWu2Op36oDBmvvrlHU9uNz49kuU/edit#gid=0")
+# write csv for later use
+#write_csv(DK_civilstatus, "data/DKstatdata_civilstatus.csv")
+#DK_civilstatus <- read.csv("data/DKstatdata_civilstatus.csv", options = "ENCODING=WINDOWS-1252")
+DK_civilstatus <- DK_civilstatus[complete.cases(DK_civilstatus), ]
+
+# data wrangling
+# checking if we have equal number of municipalities in the two data sets
+length(mun$NAME_2) #99
+length(unique(DK_civilstatus$Region)) #104
+
+# as we have differing lengths I made a for loop to check which regions differ
+for (i in sort(unique(DK_civilstatus$Region))){
+  if (i %in% mun$NAME_2){
+    # do nothing
+  }
+  else {
+    print(paste(i, "is not in the data!"))
+  }
+}
+
+# checking if the missing municipalities are missing because of difference in spelling
+sort(mun$NAME_2)
+sort(unique(DK_civilstatus$Region))
+
+# changing the naming in the mun data to match the singles data
+which(grepl("Å", mun$NAME_2)) # 31
+mun$NAME_2[31] <- "Aarhus"
+
+which(grepl("Vest", mun$NAME_2)) # 60
+
+mun$NAME_2[60] <- "Vesthimmerlands"
+
+which(grepl("Høje", mun$NAME_2)) # 21
+mun$NAME_2[21] <- "Høje-Taastrup"
+
+# the last missing data are due to the singles data also being shown per region and this we are not interested in
+DK_civilstatus <- DK_civilstatus[-grep("Region", DK_civilstatus$Region),]
+
+# rechecking length of data sets
+length(mun$NAME_2) #99
+length(unique(DK_civilstatus$Region)) #99
+```
+Now that the data has been cleaned, we can calculate the total numbers of men and women in each municipality and calculate the percentages for single men and women.
+
+```{r}
+# Save number of men and women in each year per region
+DK_population <- DK_civilstatus %>% 
+  group_by(Region) %>% 
+  summarize(sum2015 = sum(Y2015K1),
+            sum2016 = sum(Y2016K1),
+            sum2017 = sum(Y2017K1),
+            sum2018 = sum(Y2018K1),
+            sum2019 = sum(Y2019K1),
+            sum2020 = sum(Y2020K1))  %>%
+  janitor::adorn_totals(where = "row")
+
+# Check Status categories to know which to exclude from "single" category
+unique(DK_civilstatus$Status)
+
+# Merge the summary with the singles dataset and spatial polygons
+singles_per_region <- mun %>% 
+  dplyr::select(NAME_2) %>% 
+  merge(DK_population, by.x = "NAME_2",by.y ="Region") %>% 
+  merge(DK_civilstatus, by.x = "NAME_2",by.y ="Region") %>% 
+  group_by(NAME_2, Sex) %>% 
+  filter(Status == "Ugift") %>%
+  mutate(pct_singles_2015 = Y2015K1/sum2015*100,
+         pct_singles_2016 = Y2016K1/sum2016*100,
+         pct_singles_2017 = Y2017K1/sum2017*100,
+         pct_singles_2018 = Y2018K1/sum2018*100,
+         pct_singles_2019 = Y2019K1/sum2019*100,
+         pct_singles_2020 = Y2020K1/sum2020*100)
+singles_per_region
+
+# Map some aspect of the result to see no municipalities are missing
+#singles_per_region %>% 
+  # group_by(NAME_2) %>% 
+  # filter(Sex=="Kvinder") %>%  # Kvinder
+  # select(pct_singles_2015) %>% # 2015
+  # mapview()
+
+
+# Save for later use
+write_rds(singles_per_region, "data/singles_per_region.rds") 
+
+```
+
+Data looks good. Now, we can look at singles seperated in sex and year.
+
+```{r}
+# looking at the yearly trends with tmap
+# map for 2015 with facets by sex
+singles_per_region %>% 
+  filter(grepl("^M|^K", Sex)) %>% 
+  tm_shape() + 
+  tm_facets("Sex", ncol = 2) +
+  tm_polygons("pct_singles_2015",
+              title= "Percentage of singles in 2015")
+
+# map for 2016 with facets by sex
+singles_per_region %>% 
+  filter(grepl("^M|^K", Sex)) %>% 
+  tm_shape() + 
+  tm_facets("Sex", ncol = 2) +
+  tm_polygons("pct_singles_2016",
+              title= "Percentage of singles in 2016")
+
+# map for 2017 with facets by sex
+singles_per_region %>% 
+  filter(grepl("^M|^K", Sex)) %>% 
+  tm_shape() + 
+  tm_facets("Sex", ncol = 2) +
+  tm_polygons("pct_singles_2017",
+              title= "Percentage of singles in 2017")
+
+# map for 2018 with facets by sex
+singles_per_region %>% 
+  filter(grepl("^M|^K", Sex)) %>% 
+  tm_shape() + 
+  tm_facets("Sex", ncol = 2) +
+  tm_polygons("pct_singles_2018",
+              title= "Percentage of singles in 2018")
+
+# map for 2019 with facets by sex
+singles_per_region %>% 
+  filter(grepl("^M|^K", Sex)) %>% 
+  tm_shape() + 
+  tm_facets("Sex", ncol = 2) +
+  tm_polygons("pct_singles_2019",
+              title= "Percentage of singles in 2019")
+
+# map for 2020 with facets by sex
+singles_per_region %>% 
+  filter(grepl("^M|^K", Sex)) %>% 
+  tm_shape() + 
+  tm_facets("Sex", ncol = 2) +
+  tm_polygons("pct_singles_2020",
+              title= "Percentage of singles in 2020")
+```
+The trends are not drastically changing each year and I think the most notable is that there seems to be generally more men that are unmarried in Denmark compared to women. However, we should be careful when interpreting anything based on with the distribution of percentage of singles.
+
+Lets look at these trends in a more visually intuitive way by making a cartogram. This will expand areas with many singles and shrink areas with low amount of singles. 
+
+For this map, I will just focus on the year 2020 but feel free to change the code to also inspect the other years.
+
+```{r}
+# Let's look at single women in 2020
+women2020 <- singles_per_region %>% 
+  filter((grepl("^K", Sex))) 
+
+# Make a scatterplot of municipality singles versus area and single women and municipality area
+plot(women2020$sum2020, st_area(women2020, byid = TRUE))
+plot(women2020$pct_singles_2020, st_area(women2020, byid = TRUE))
+
+# Make a cartogram, scaling the area to population
+population_2020 <- cartogram_cont(women2020, "sum2020")
+# Now check the linearity of singles per municipality plot
+plot(population_2020$sum2020, st_area(population_2020, byid = TRUE))
+
+# Make a cartogram, scaling the area to the percentage of single women
+single_women_2020 <- cartogram_cont(women2020, "pct_singles_2020")
+# Check the linearity of the single women percentage per municipality plot
+plot(single_women_2020$pct_singles_2020, st_area(single_women_2020, byid = TRUE))
+
+
+# Make a fairer map of the single women percentage in 2020
+plot(population_2020$geometry, 
+     col = "beige",
+     main = "Population in DK municipalities 2020")
+plot(single_women_2020$geometry,
+     col="pink",
+     main = "% of female singles across DK in 2020")
+```
+Now for the single men in 2020:
+
+```{r}
+# Let's look at single men in 2020
+men2020 <- singles_per_region %>% 
+  filter(grepl("^M",Sex)) 
+
+# Make a scatterplot of municipality singles versus area and single men and municipality area
+plot(men2020$sum2020, st_area(men2020, byid = TRUE))
+plot(men2020$pct_singles_2020, st_area(men2020, byid = TRUE))
+
+# Make a cartogram, scaling the area to all singles
+#population_2020 <- cartogram_cont(men2020, "sum2020") # same as for women
+
+# Now check the linearity of population per municipality plot
+#plot(population_2020$sum2020, st_area(population_2020, byid = TRUE))
+
+# Make a cartogram, scaling the area to the percentage of single men
+single_men_2020 <- cartogram_cont(men2020, "pct_singles_2020")
+
+# Check the linearity of the single men percentage per municipality plot
+plot(single_men_2020$pct_singles_2020, st_area(single_men_2020, byid = TRUE))
+
+
+# Make a fairer map of the single men percentage in 2020
+plot(population_2020$geometry, 
+     col = "beige",
+     main = "Population in DK municipalities 2020")
+plot(single_men_2020$geometry,
+     col="#a6bddb",
+     main = "% of male singles across DK in 2020")
+```
+
+
+__Spatial autocorrelation test:__
+```{r}
+# plot geometry
+plot(singles_per_region$geometry)
+
+# simplify the boundaries to speed up the processing
+mun_sm<- st_cast(st_simplify(mun, dTolerance = 250), to = "MULTIPOLYGON")
+# plot simplified geometry
+plot(mun_sm$geometry)
+
+# Make neighbor list following queen adjacency
+nb <- poly2nb(mun_sm$geometry)
+# Get center points of each municipality
+mun_centers <- st_coordinates(st_centroid(mun_sm$geometry))
+# Show the connections
+plot(mun_sm$geometry); plot(nb, mun_centers, col = "red",add = TRUE)
+
+```
+
+__Calculating Moran's I for single women across municipalities in DK:__
+```{r}
+# Let's look at women in 2020
+women2020 <- singles_per_region %>% 
+  filter(grepl("^K",Sex)) 
+
+length(women2020$NAME_2)
+length(nb)
+# Run a Moran I test on total number of women singles in percentage in 2020
+moran.test(women2020$pct_singles_2020, 
+           nb2listw(nb, style = "W",zero.policy=TRUE),
+           zero.policy=TRUE)
+# Morans I = 0.04, p = 0.27
+
+# Do a Monte Carlo simulation to get a better p-value
+moran.mc(women2020$pct_singles_2020,
+         nb2listw(nb, zero.policy=TRUE),
+         zero.policy=TRUE, 
+         nsim = 999)
+# Morans I = 0.04, p = 0.24
+```
+The z-value of Moran's I is very low (z = 0.04) and not significant (p>0.05) both under randomisation and when performing Monte Carlo simulation.
+This suggests that there the single women are randomly dispersed across municipalities in DK. The positivity of the z-score could indicate slight clustering but still this is not significant.
+
+__Calculating Moran's I for single men across municipalities in DK:__
+```{r}
+# Let's look at women in 2020
+men2020 <- singles_per_region %>% 
+  filter(grepl("^M",Sex)) 
+
+# checking that the men2020 have same length as nb
+length(men2020$NAME_2) #99
+length(nb) #99
+
+# Run a Moran I test on total number of women singles in percentage in 2020
+moran.test(men2020$pct_singles_2020, 
+           nb2listw(nb, style = "W",zero.policy=TRUE),
+           zero.policy=TRUE)
+# Moran's I = -0.04, p = 0.65
+
+# Do a Monte Carlo simulation to get a better p-value
+moran.mc(men2020$pct_singles_2020,
+         nb2listw(nb, zero.policy=TRUE),
+         zero.policy=TRUE, 
+         nsim = 999)
+# Moran's I = -0.04, p = 0.69
+```
+Again, the z-value of Moran's I for autocorrelation between distribution of single men across municipalities is very low (z = - 0.04) and not significant (p>0.05) both under randomisation and when performing Monte Carlo simulation.
+As before, this suggests that there the single men are randomly dispersed. The negativity of the z-score could indicate slight non-random dispersal but still this is not significant.
+
+__Trying to run the same analysis but with d and k nearest neighbor__
+```{r}
+# Get center points of each municipality
+mun_centers <-st_centroid(mun_sm$geometry, of_largest_polygon = TRUE)
+
+# Make neighbor list from neighbours at 50km distance
+nb_50 <- dnearneigh(mun_centers, 0, 50000)
+plot(mun_sm$geometry); plot(nb_50, mun_centers, col = "red",add = TRUE)
+title(main="Neighbours within 50 km distance")
+
+# Make neighbor list from neighbours at 20km distance
+nb_20 <- dnearneigh(mun_centers, 0, 20000)
+plot(mun_sm$geometry); plot(nb_20, mun_centers, col = "blue",add = TRUE)
+title(main="Neighbours within 20 km distance")
+
+# Make neighbor list from 3 nearest neighbours
+coords <- coordinates(as(women2020, "Spatial"))
+col.knn <- knearneigh(coords, k=3)
+plot(st_geometry(women2020), border="grey")
+plot(knn2nb(col.knn), coords, add=TRUE)
+title(main="K nearest neighbours, k = 3")
+```
+
+## Rerun Moran's I on single women in DK
+Now let's rerun Moran's I with different neighbour conceptions for single women in DK
+- d nearest neighbor: d = 50km
+- d nearest neighbor: d = 20km
+- k nearest neighbor: k = 3 neighbors
+```{r}
+# Run a Moran I test with Monte Carlo simultion on total number of women singles in percentage in 2020 with nearest neighbour distance of 50 km
+moran.mc(women2020$pct_singles_2020,
+         nb2listw(nb_50, zero.policy=TRUE),
+         zero.policy=TRUE, 
+         nsim = 999)
+# Moran's I = -0.16, p = 1.0
+
+# Run a Moran I test with Monte Carlo simultion on total number of women singles in percentage in 2020 with nearest neighbour distance of 20 km
+moran.mc(women2020$pct_singles_2020,
+         nb2listw(nb_20, zero.policy=TRUE),
+         zero.policy=TRUE, 
+         nsim = 999)
+# Moran's I = 0.01, p = 0.40
+
+# Run a Moran I test with Monte Carlo simultion on total number of women singles in percentage in 2020 based on 3 neighbours
+moran.mc(women2020$pct_singles_2020,
+         nb2listw(knn2nb(col.knn), zero.policy=TRUE),
+         zero.policy=TRUE, 
+         nsim = 999)
+# Moran's I = 0.27, p = 0.001
+```
+Without having a clear hypothesis (which I don't have) it is difficult to make any inferences based on the results. 
+However, consider this exploratory testing.
+When looking at the Moran's I test results it is apparent that both of the d nearest neighbors yielded no significant results and the Moran's I's also varied in direction (not a good sign...).
+However, if we instead look at only the 3 nearest neighbors, there seems to be evidence of clustering (z = 0.27, p < 0.05) between distribution of single women. 
+
+
+## Rerun Moran's I on single men in DK
+Now let's rerun Moran's I with different neighbour conceptions for single men in DK
+- d nearest neighbor: d = 50km
+- d nearest neighbor: d = 20km
+- k nearest neighbor: k = 3 neighbors
+```{r}
+# Run a Moran I test with Monte Carlo simultion on total number of men singles in percentage in 2020 with nearest neighbour distance of 50 km
+moran.mc(men2020$pct_singles_2020,
+         nb2listw(nb_50, zero.policy=TRUE),
+         zero.policy=TRUE, 
+         nsim = 999)
+# Moran's I = -0.14, p = 1.0
+
+# Run a Moran I test with Monte Carlo simultion on total number of men singles in percentage in 2020 with nearest neighbour distance of 20 km
+moran.mc(men2020$pct_singles_2020,
+         nb2listw(nb_20, zero.policy=TRUE),
+         zero.policy=TRUE, 
+         nsim = 999)
+# Moran's I = 0.02, p = 0.31
+
+# Run a Moran I test with Monte Carlo simultion on total number of men singles in percentage in 2020 based on 3 neighbours
+moran.mc(men2020$pct_singles_2020,
+         nb2listw(knn2nb(col.knn), zero.policy=TRUE),
+         zero.policy=TRUE, 
+         nsim = 999)
+# Moran's I = 0.17, p = 0.01
+```
+As for single women, when looking at the Moran's I test results for single men it is apparent that both of the d nearest neighbors (20 and 50km) yielded no significant results and again the Moran's I's varied in direction.
+And just as with the distribution of single women looking at only the 3 nearest neighbors, there seems to be evidence of clustering (z = 0.17, p < 0.05) between distribution of single men. 
+Compared to single women the z score is smaller indicating clustering to a lesser degree. However, this still seems significant.
+
+## __Conclusion:__
+__Is the population of single women/men in Denmark spatially correlated? What is the correlation and how significant is the trend?__
+When testing for spatial autocorrelation for the distribution of single women and men in Denmark in 2020, Moran's I is not significant when conceptualizing neighbors through the queen's adjacency, d nearest neighbors within 50 km and 20 km.
+However, the Moran's I is significantly positive (z = 0.27, p<0.05) when examining autocorrelation between the three nearest neighbours of each municipality. This indicates that there is a moderate clustering of single women between municipalities. However, we should also take into consideration that when we change our definition of neighbours the direction of the z-value change and become insignificant. And as this is an exploratory investigation more information is needed before one can conclude anything based on these results.
+
+The same applies for single men in Denmark, though with different z-values. However, the same results were encountered in relation to significant/insignificant results. Only the k-nearest neighbour of three yielded significant results (z = 0.17, p<0.05). Compared to single women the clustering between singles in a municipality and it's three nearest neighbours seem to be to a lesser extent.
