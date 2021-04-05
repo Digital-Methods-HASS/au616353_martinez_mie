@@ -15,6 +15,7 @@ However, to my opinion the best results were yielded when looking at nouns and v
 When examining the outputs do note that the numbering of topics differ between the html and the png file. 
 To examine the png file, I therefore suggest that you cross reference with the topics printed in the terminal. <br>
 
+The final model had a perplexity score of -7.79 and a coherence score of 0.31. However, I should be able to get the coherence score up if I add more topics. This will just interfere with the interpretability of the lineplot so I guess it is a matter of priority.  
 
 __Results__ <br>
 When looking at the three most dominant topics (topics 1-3 in the html file), the topics that Trump has been most occupied with seems to be about the elections, 
