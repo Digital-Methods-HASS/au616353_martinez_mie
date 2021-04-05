@@ -1,0 +1,7 @@
+pandas==1.1.5
+spacy==2.3.5
+matplotlib==3.3.4
+pyLDAvis==3.2.2
+gensim==3.8.3
+nltk==3.5
+seaborn==0.11.1
