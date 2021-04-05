@@ -3,6 +3,12 @@ For this assignment, I chose to examine the development of topics depicted in Do
 The tweets are from around 2011 (with a few tweets from 2009 and 2010) to the beginning of 2021.
 I wanted to see if it was possible to train a model that could detect a development in trends that Trump wrote about. <br>
 
+__Preprocessing__ <br>
+The preprocessing steps can be seen in the script under the class methods ```load_and_prepare()``` and ```process_data()```.
+In the former, I filtered away all tweets containing hyperlinks as these would have added noise to the data. Similarly, I removed all retweets, as I am only interested in the topics that Trump formulated on his own. This was fairly easy as the dataset had a column for whether the tweet was a retweet. <br>
+Following this, I appended all tweets to a single list.
+In the latter method, I build models for bigrams and trigrams and fitted these to the data. Furthermore, the words were lemmatized and part of speech tagging was performed keeping only nouns and verbs. This was done using the method ```process_words()```  from the utils script lda_utils.py.
+
 I didn't have much time to play around with it too much so there might be more optimal ways/combinations for examining the tweets. 
 However, to my opinion the best results were yielded when looking at nouns and verbs and setting number of topics to 10. <br>
 
