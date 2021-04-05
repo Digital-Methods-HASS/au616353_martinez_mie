@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Specify file path of the csv file of Trump tweets and name of the output graph. You can also specify number of topics and what kind of words you want to investigate. The default is 15 topics and word types nouns and verbs. The output will be a perplexity and coherence score printed in the terminal as well as a print of the 10 most prominent words constituting each topic. Furthermore, a plot of the development of topics within Trumps tweets will be saved in a folder called out in the path relative to the working directory i.e., location of the script.
+Specify file path of the csv file of Trump tweets and name of the output graph. You can also specify number of topics and what kind of words you want to investigate. The default is 10 topics and word types nouns and verbs. The output will be a perplexity and coherence score printed in the terminal as well as a print of the 10 most prominent words constituting each topic. Furthermore, a plot of the development of topics within Trumps tweets will be saved in a folder called out in the path relative to the working directory i.e., location of the script.
 Parameters:
     input_file: str <filepath-of-csv-file>
     output_filename: str <name-of-png-file>
@@ -12,9 +12,8 @@ Example:
     $ python3 development_of_trump.py -f ../data/Trump_tweets.csv -o trumps_development.png -n 15 -w "['NOUN', 'VERB']"
     
 ## Task
-- Train a unsupervised classifyer 
-- For any given weighted edgelist given as an input, your script should be used to create a network visualization, which will be saved in a folder called viz.
-- It should also create a data frame showing the degree, betweenness, and eigenvector centrality for each node. It should save this as a CSV in a folder called output.
+- Train an unsupervised classifyer as an LDA model on your data to extract structured information that can provide insight into topics in Trumps tweets.
+- Output is in the form of an html file containing the topics (as well as a print in the terminal) and a png file for the development of topics. Both can be found in the folder data/output.
 """
 
 import re
@@ -60,8 +59,8 @@ ap = argparse.ArgumentParser()
 # adding argument
 ap.add_argument("-f", "--input_file", required = True, help= "Path to the csv-file")
 ap.add_argument("-o", "--output_filename", default = "trumps_development.png", help = "Name of output file")
-ap.add_argument("-n", "--n_topics", default = 20, help = "Number of topics")
-ap.add_argument("-w", "--word_type", default = "NOUN", help = "Type of word. Choose between: 'NOUN','VERB','ADJ','ADV'")
+ap.add_argument("-n", "--n_topics", default = 10, help = "Number of topics")
+ap.add_argument("-w", "--word_type", default = "['NOUN', 'VERB']", help = "Type of word. Choose between: 'NOUN','VERB','ADJ','ADV'")
 # parsing arguments
 args = vars(ap.parse_args())
 
@@ -97,8 +96,9 @@ def main(args):
 class Tweet_development:
     def __init__(self, input_file, output_file, n_topics, word_types):
         '''
-        Constructing the Network object
+        Constructing the Tweet_development object
         '''
+        # creating the class object with the user defined inputs
         self.input_file = input_file
         self.output_file = output_file
         self.n_topics = n_topics
@@ -106,7 +106,7 @@ class Tweet_development:
         
     def load_and_prepare(self):
         '''
-        Loading the input data and filter and prepare data for classification.
+        Loading the input data. Filter and prepare data for classification.
         Returns a filtered list.
         '''
         print("\nLoading the data...")
@@ -193,7 +193,7 @@ class Tweet_development:
         coherence_lda = coherence_model_lda.get_coherence()
         print('\nCoherence Score: ', coherence_lda)
         
-    
+        # print the topics found by the lda model in the terminal
         pprint(lda_model.print_topics())
         
         return id2word, corpus, lda_model
@@ -221,23 +221,33 @@ class Tweet_development:
         print("\nGensim LDA visualization is saved as", out_path)
         
         
-        # inspect dominant topic per chunk
+        # inspect dominant topic
         values = list(lda_model.get_document_topics(corpus))
         
-        
+        # create empty list 
         split = []
+        # for loop for each document in the corpus
         for entry in values:
+            # create empty list
             topic_prevelance = []
+            # for loop for each topic in each document
             for topic in entry:
+                # append the contribution of each topic for each document
                 topic_prevelance.append(topic[1])
+            # append the list with contributions of topics to the split list    
             split.append(topic_prevelance)
         
+        # making a dataframe containing for each document the percentage of contribution of the 10 topics
         df = pd.DataFrame(map(list,zip(*split)))
         
+        # defining the output path
         out_path = os.path.join(outputDir, self.output_file)
         
+        # making a lineplot with a rolling mean of 500 tweets
         line_plot = sns.lineplot(data=df.T.rolling(500).mean())
+        # saving the lineplot as a figure
         fig = line_plot.get_figure()
+        # saving the figure in the output path
         fig.savefig(out_path)
         print("\nLineplot for development of topics in tweets is saved as", out_path)
         
