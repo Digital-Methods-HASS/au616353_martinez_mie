@@ -11,7 +11,7 @@ Parameters:
 Usage:
     cnn-artists.py -t <path-to-train> -c <path-to-test-data> -n <number-of-epochs> -b <batch-size>
 Example:
-    $ python cnn-artists.py -t ../data/training/training -te ../data/validation/validation -n 30 -b 40
+    $ python3 cnn-artists.py -t ../data/training/training -te ../data/validation/validation -n 30 -b 40
     
 ## Task
 - Make a convolutional neural network (CNN) and train on classifying paintings from 10 different painters.
@@ -60,14 +60,14 @@ ap.add_argument("-t", "--path2train",
                 type = str,
                 required = False,
                 help = "Path to the training data",
-                default = "../data/training/training")
+                default = "../data/subset/training")
     
 # Argument 2: Path to test data
 ap.add_argument("-te", "--path2test",
                 type = str,
                 required = False,
                 help = "Path to the test/validation data",
-                default = "../data/validation/validation")
+                default = "../data/subset/validation")
     
 # Argument 3: Number of epochs
 ap.add_argument("-n", "--n_epochs",
@@ -244,8 +244,10 @@ def create_trainX_trainY(train_data, min_height, min_width, label_names):
             # Create array of image
             image_array = np.array([np.array(resized_img)])
         
-            # Append
+            # Append the image array to the trainX
             trainX = np.vstack((trainX, image_array))
+            
+            # Append the label name to the trainY list
             trainY.append(name)
         
     return trainX, trainY
@@ -275,8 +277,9 @@ def create_testX_testY(test_data, min_height, min_width, label_names):
             # Create array
             image_array = np.array([np.array(resized_img)])
         
-            # Append
+            # Append the image array to the testX
             testX = np.vstack((testX, image_array))
+            # Append the label name to the testY list
             testY.append(name)
         
     return testX, testY
@@ -309,7 +312,7 @@ def define_LeNet_model(min_width, min_height):
     # Add first set of convolutional layer, ReLu activation function, and pooling layer
     # Convolutional layer
     model.add(Conv2D(32, (3, 3), 
-                     padding="same", 
+                     padding="same", # padding with zeros
                      input_shape=(min_height, min_width, 3)))
     
     # Activation function
@@ -367,6 +370,7 @@ def define_LeNet_model(min_width, min_height):
                                   to_file = plot_path,
                                   show_shapes=True,
                                   show_layer_names=True)
+    print(f"\n[INFO] Model architecture is saved as txt in '{model_path}' and as png in '{plot_path}'.")
     
     return model
 
@@ -404,6 +408,7 @@ def plot_history(H, n_epochs):
     plt.tight_layout()
     plt.savefig(figure_path)
     
+    print(f"\n[INFO] Loss and accuracy across on training and validation is saved as '{plot_path}'.")
     
 def evaluate_model(model, testX, testY, batch_size, label_names):
     """
@@ -428,6 +433,8 @@ def evaluate_model(model, testX, testY, batch_size, label_names):
         f.writelines(classification_report(testY.argmax(axis=1),
                                                   predictions.argmax(axis=1),
                                                   target_names=label_names))
+    
+    print(f"\n[INFO] Classification report is saved as '{report_path}'.")
 
 # Define behaviour when called from command line
 if __name__=="__main__":
