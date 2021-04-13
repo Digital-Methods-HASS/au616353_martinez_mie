@@ -1,9 +1,8 @@
-# Assignment 5 - (Un)supervised machine learning
+# Assignment 5 - CNNs on cultural image data
+### Multi-class classification of impressionist painters
 This repository contains all of the code and a subset of the data related to Assignment 5 for Visual Analytics.
 The full data can be found on Kaggle:
 https://www.kaggle.com/delayedkarma/impressionist-classifier-data
-
-For a write-up of the results, see RESULTS.md. <br>
 
 In the data folder there is a subset folder of the data for training and validating the model. The folders contain 10 individual folders for each artist with jpg files of their paintings.
 The output of the python script is saved in the created out folder. This contains a txt file and a visualization saved as png of the model architecture. 
@@ -42,3 +41,8 @@ After creating the environment, you have to activate it. And then you can run th
     $ python3 cnn-artists.py
 ```
 The outputs will appear in an out folder.
+
+
+### Results:
+For a view of the results when running the model on the whole data see the out folder.
+The best result was obtain using a batch size of 32 and 20 epochs. Here, an accuracy score of 0.42 was observed when running it in the group. However, this didn't replicate when I ran it again on my own computer as can be seen in the out folder.
